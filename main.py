@@ -2,7 +2,7 @@
 
 def main():
    print("Dear World,")
-   print("Hello!")
+   print("What do you mean, you've never seen blade runner?!")
    print("From,")
    print("Owen")
 
