@@ -14,16 +14,14 @@ def createLandmarker():
    landmarker = mp.tasks.vision.HandLandmarker
 
    # callback function options
-   # print, from https://developers.google.com/mediapipe/solutions/vision/hand_landmarker/python#live-stream
    def print_result(result: mp.tasks.vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
       print('hand landmarker result: {}'.format(result))
 
-   # next is to add a callback that'll draw on the video stream
    def update_result(result: mp.tasks.vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
       global result_landmarks
       result_landmarks = result
    
-   # options for running it
+   # HandLandmarkerOptions (details here: https://developers.google.com/mediapipe/solutions/vision/hand_landmarker/python#live-stream)
    options = mp.tasks.vision.HandLandmarkerOptions( 
       base_options = mp.tasks.BaseOptions(model_asset_path="hand_landmarker.task"), # path to model
       running_mode = mp.tasks.vision.RunningMode.LIVE_STREAM, # running on a live stream
@@ -62,19 +60,42 @@ def draw_landmarks_on_image(rgb_image, detection_result: mp.tasks.vision.HandLan
                solutions.drawing_styles.get_default_hand_landmarks_style(),
                solutions.drawing_styles.get_default_hand_connections_style())
 
-            # # Get the top left corner of the detected hand's bounding box.
-            # height, width, _ = annotated_image.shape
-            # x_coordinates = [landmark.x for landmark in hand_landmarks]
-            # y_coordinates = [landmark.y for landmark in hand_landmarks]
-            # text_x = int(min(x_coordinates) * width)
-            # text_y = int(min(y_coordinates) * height) - 10
-
-            # # Draw handedness (left or right hand) on the image.
-            # cv2.putText(annotated_image, f"{handedness[0].category_name}",
-            #             (text_x, text_y), cv2.FONT_HERSHEY_DUPLEX,
-            #             2, (0,0,255), 3, cv2.LINE_AA)
-
          return annotated_image
+   except:
+      return rgb_image
+
+def count_fingers_raised(rgb_image, detection_result: mp.tasks.vision.HandLandmarkerResult):
+   """Iterate through each hand, checking if fingers (and thumb) are raised.
+   Hand landmark enumeration (and weird naming convention) comes from
+   https://developers.google.com/mediapipe/solutions/vision/hand_landmarker."""
+   try:
+      # Get Data
+      hand_landmarks_list = detection_result.hand_landmarks
+      # Counter
+      numRaised = 0
+      # for each hand...
+      for idx in range(len(hand_landmarks_list)):
+         # hand landmarks is a list of landmarks where each entry in the list has an x, y, and z in normalized image coordinates
+         hand_landmarks = hand_landmarks_list[idx]
+         # for each fingertip... (hand_landmarks 4, 8, 12, and 16)
+         for i in range(4,21,4):
+            # make sure finger is higher in image the 3 proceeding values (2 finger segments and knuckle)
+            tip_y = hand_landmarks[i].y
+            dip_y = hand_landmarks[i-1].y
+            pip_y = hand_landmarks[i-2].y
+            mcp_y = hand_landmarks[i-3].y
+            if tip_y < min(dip_y,pip_y,mcp_y):
+               numRaised += 1
+         
+      # display number of fingers raised on the image
+      annotated_image = np.copy(rgb_image)
+      height, width, _ = annotated_image.shape
+      text_x = int(hand_landmarks[0].x * width) - 100
+      text_y = int(hand_landmarks[0].y * height) + 50
+      cv2.putText(img = annotated_image, text = str(numRaised) + " Fingers Raised",
+                        org = (text_x, text_y), fontFace = cv2.FONT_HERSHEY_DUPLEX,
+                        fontScale = 1, color = (0,0,255), thickness = 2, lineType = cv2.LINE_4)
+      return annotated_image
    except:
       return rgb_image
 
@@ -84,6 +105,9 @@ def main():
 
    # create landmarker
    hand_landmarker = createLandmarker()
+
+   # access global result variable
+   global result_landmarks
 
    # open landmarker and stream data
    with hand_landmarker as landmarker:
@@ -96,6 +120,8 @@ def main():
          landmarker.detect_async(image = mp_image, timestamp_ms = int(time.time() * 1000))
          # draw landmarks on frame
          frame = draw_landmarks_on_image(frame,result_landmarks)
+         # count number of fingers raised
+         frame = count_fingers_raised(frame, result_landmarks)
 
          cv2.imshow('frame',frame)
          if cv2.waitKey(1) == ord('q'):
