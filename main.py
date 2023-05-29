@@ -78,7 +78,7 @@ def count_fingers_raised(rgb_image, detection_result: mp.tasks.vision.HandLandma
          # hand landmarks is a list of landmarks where each entry in the list has an x, y, and z in normalized image coordinates
          hand_landmarks = hand_landmarks_list[idx]
          # for each fingertip... (hand_landmarks 4, 8, 12, and 16)
-         for i in range(4,21,4):
+         for i in range(8,21,4):
             # make sure finger is higher in image the 3 proceeding values (2 finger segments and knuckle)
             tip_y = hand_landmarks[i].y
             dip_y = hand_landmarks[i-1].y
@@ -86,6 +86,20 @@ def count_fingers_raised(rgb_image, detection_result: mp.tasks.vision.HandLandma
             mcp_y = hand_landmarks[i-3].y
             if tip_y < min(dip_y,pip_y,mcp_y):
                numRaised += 1
+         # for the thumb
+         # use direction vector from wrist to base of thumb to determine "raised"
+         tip_x = hand_landmarks[4].x
+         dip_x = hand_landmarks[3].x
+         pip_x = hand_landmarks[2].x
+         mcp_x = hand_landmarks[1].x
+         palm_x = hand_landmarks[0].x
+         if mcp_x > palm_x:
+            if tip_x > max(dip_x,pip_x,mcp_x):
+               numRaised += 1
+         else:
+            if tip_x < min(dip_x,pip_x,mcp_x):
+               numRaised += 1
+         
          
       # display number of fingers raised on the image
       annotated_image = np.copy(rgb_image)
