@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 import mediapipe as mp
 # for visualizing results
-from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 
 result_landmarks = mp.tasks.vision.HandLandmarkerResult
@@ -15,7 +14,7 @@ def createLandmarker():
 
    # callback function options
    def print_result(result: mp.tasks.vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
-      print('hand landmarker result: {}'.format(result))
+      print('hand landmarker result: {}'.format(result.handedness))
 
    def update_result(result: mp.tasks.vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
       global result_landmarks
@@ -47,18 +46,17 @@ def draw_landmarks_on_image(rgb_image, detection_result: mp.tasks.vision.HandLan
          # Loop through the detected hands to visualize.
          for idx in range(len(hand_landmarks_list)):
             hand_landmarks = hand_landmarks_list[idx]
-            handedness = handedness_list[idx]
-
+            
             # Draw the hand landmarks.
             hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
             hand_landmarks_proto.landmark.extend([
                landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in hand_landmarks])
-            solutions.drawing_utils.draw_landmarks(
+            mp.solutions.drawing_utils.draw_landmarks(
                annotated_image,
                hand_landmarks_proto,
-               solutions.hands.HAND_CONNECTIONS,
-               solutions.drawing_styles.get_default_hand_landmarks_style(),
-               solutions.drawing_styles.get_default_hand_connections_style())
+               mp.solutions.hands.HAND_CONNECTIONS,
+               mp.solutions.drawing_styles.get_default_hand_landmarks_style(),
+               mp.solutions.drawing_styles.get_default_hand_connections_style())
 
          return annotated_image
    except:
@@ -123,25 +121,26 @@ def main():
    # access global result variable
    global result_landmarks
 
-   # open landmarker and stream data
-   with hand_landmarker as landmarker:
-      while True:
-         ret, frame = cap.read()
-         frame = cv2.flip(frame, 1)
-         # convert frame to mp image file
-         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
-         # process image
-         landmarker.detect_async(image = mp_image, timestamp_ms = int(time.time() * 1000))
-         # draw landmarks on frame
-         frame = draw_landmarks_on_image(frame,result_landmarks)
-         # count number of fingers raised
-         frame = count_fingers_raised(frame, result_landmarks)
+   while True:
+      # pull frame
+      ret, frame = cap.read()
+      # mirror frame
+      frame = cv2.flip(frame, 1)
+      # convert frame to mp image file
+      mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
+      # process image
+      hand_landmarker.detect_async(image = mp_image, timestamp_ms = int(time.time() * 1000))
+      # draw landmarks on frame
+      frame = draw_landmarks_on_image(frame,result_landmarks)
+      # count number of fingers raised
+      frame = count_fingers_raised(frame, result_landmarks)
 
-         cv2.imshow('frame',frame)
-         if cv2.waitKey(1) == ord('q'):
-            break
+      cv2.imshow('frame',frame)
+      if cv2.waitKey(1) == ord('q'):
+         break
    
    # release everything
+   hand_landmarker.close()
    cap.release()
    cv2.destroyAllWindows()
 
