@@ -14,10 +14,7 @@ class landmarker_and_result():
       self.createLandmarker()
    
    def createLandmarker(self):
-      # callback function options
-      def print_result(result: mp.tasks.vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
-         print('hand landmarker result: {}'.format(result.handedness))
-         
+      # callback function
       def update_result(result: mp.tasks.vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
          self.result = result
 
@@ -32,13 +29,16 @@ class landmarker_and_result():
          result_callback=update_result)
       
       # initialize landmarker
-      return mp.tasks.vision.HandLandmarker.create_from_options(options)
+      self.landmarker = self.landmarker.create_from_options(options)
    
    def detect_async(self, frame):
+      # convert np frame to mp image
       mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
+      # detect landmarks
       self.landmarker.detect_async(image = mp_image, timestamp_ms = int(time.time() * 1000))
 
    def close(self):
+      # close landmarker
       self.landmarker.close()
 
 def draw_landmarks_on_image(rgb_image, detection_result: mp.tasks.vision.HandLandmarkerResult):
@@ -137,7 +137,7 @@ def main():
       frame = draw_landmarks_on_image(frame,hand_landmarker.result)
       # count number of fingers raised
       frame = count_fingers_raised(frame,hand_landmarker.result)
-
+      # display image
       cv2.imshow('frame',frame)
       if cv2.waitKey(1) == ord('q'):
          break
